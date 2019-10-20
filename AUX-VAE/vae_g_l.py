@@ -14,7 +14,7 @@ import numpy as np
 
 
 def output_to_dist(output, dim=-1):
-    z_size = output.size(dim)/2
+    z_size = output.size(dim)//2
     mean, log_var = torch.split(output, z_size, dim=dim)
     return torch.distributions.Normal(mean, torch.exp(0.5*log_var))
 
@@ -46,16 +46,16 @@ class Encoder(nn.Module):
         
         self.global_net = nn.Sequential(
             custom_nn.Transpose((1, 2)),
-            nn.Conv1d(201, args.z_size/4, kernel_size = 3, stride = 1),
+            nn.Conv1d(201, int(args.z_size/4), kernel_size = 3, stride = 1),
             nn.Tanh(),
             
-            nn.BatchNorm1d(args.z_size/4),
+            nn.BatchNorm1d(args.z_size//4),
             
-            nn.Conv1d(args.z_size/4, args.z_size/2, kernel_size = 3, stride = 1),
+            nn.Conv1d(args.z_size//4, args.z_size//2, kernel_size = 3, stride = 1),
             nn.Tanh(),
-            nn.BatchNorm1d(args.z_size/2),
+            nn.BatchNorm1d(args.z_size//2),
             
-            nn.Conv1d(args.z_size/2, args.z_size, kernel_size = 3, stride = 1),
+            nn.Conv1d(args.z_size//2, args.z_size, kernel_size = 3, stride = 1),
             nn.Tanh(),
             nn.BatchNorm1d(args.z_size),
             

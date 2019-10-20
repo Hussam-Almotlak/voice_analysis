@@ -16,12 +16,12 @@ import pylab
 latents = ujson.load(open('experiments/tsne_latents.json', 'r'))
 latents = np.mean(np.array(latents), axis=1)
 
-print latents.shape
+print (latents.shape)
 
 labels = ujson.load(open('experiments/tsne_labels.json', 'r'))
 persons = ujson.load(open('experiments/tsne_persons.json', 'r'))
-print np.array(persons).shape
-print np.array(labels).shape
+print (np.array(persons).shape)
+print (np.array(labels).shape)
 
 label_dict = {'M': '0', 'F' : '1'}
 pers_dict = {p:i for p,i in zip(set(persons), range(0,len(set(persons))))}
@@ -36,4 +36,4 @@ labels = np.array(labels)_
 persons = np.array(persons)
 
 score = silhouette_score(latents, persons)
-print score
+print (score)

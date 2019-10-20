@@ -116,7 +116,7 @@ class VAETrainer:
                 print('====> Epoch: {} Average train losses'.format(
                     epoch))
                 print('-------------------------')
-                print avg_epoch_losses
+                print (avg_epoch_losses)
                 print('-------------------------')
                 
                 # self.writer.add_scalars('data/train_losses/', avg_epoch_losses, epoch)
@@ -129,7 +129,7 @@ class VAETrainer:
                 print('====> Epoch: {} Average test losses'.format(
                     epoch))
                 print('-------------------------')
-                print avg_test_epoch_losses
+                print (avg_test_epoch_losses)
                 print('-------------------------')
                 
                 # self.writer.add_scalars('data/test_losses/', avg_test_epoch_losses, epoch)
@@ -170,7 +170,7 @@ class VAETrainer:
         
         losses = self.VAELosses()
         
-        for name, value in losses._asdict().iteritems():
+        for name, value in losses._asdict().items():
             epoch_losses[name] = value
         
         batch_amount = 0
@@ -204,13 +204,13 @@ class VAETrainer:
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
 
-            for name, value in losses._asdict().iteritems():
+            for name, value in losses._asdict().items():
                 epoch_losses[name] += value.item()
             
             self.optimizer.step()
             step += 1
         
-        avg_epoch_losses = {k : round(v/batch_amount,5) for k, v in epoch_losses.iteritems()}
+        avg_epoch_losses = {k : round(v/batch_amount,5) for k, v in epoch_losses.items()}
         
         return avg_epoch_losses, step
     
@@ -221,7 +221,7 @@ class VAETrainer:
         epoch_losses = {}
         losses = self.VAELosses()
         
-        for name, value in losses._asdict().iteritems():
+        for name, value in losses._asdict().items():
             epoch_losses[name] = value
         
         batch_amount = 0
@@ -253,10 +253,10 @@ class VAETrainer:
             
             loss = losses.loss
             
-            for name, value in losses._asdict().iteritems():
+            for name, value in losses._asdict().items():
                 epoch_losses[name] += value.item()
         
-        avg_epoch_losses = {k : round(v/batch_amount,5) for k, v in epoch_losses.iteritems()}
+        avg_epoch_losses = {k : round(v/batch_amount,5) for k, v in epoch_losses.items()}
         
         return avg_epoch_losses
     

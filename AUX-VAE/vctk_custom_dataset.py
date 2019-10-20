@@ -100,14 +100,14 @@ class VCTK(data.Dataset):
                         self.data = (sig.tolist(), dict[pers] + [pers])
                         ujson.dump(self.data,open("vctk_preprocessed/{}.json".format(after_keyword[5:13]), 'w'))
                         if z % 100 == 0:
-                            print "{} iterations".format(z)
+                            print ("{} iterations".format(z))
                         self.data_paths = os.listdir(os.path.expanduser('vctk_preprocessed/'))
                     except:
                         continue
             
             self.data_paths = os.listdir(os.path.expanduser('vctk_preprocessed/'))
             self.num_samples = len(self.data_paths)
-            print "{} samples processed".format(self.num_samples)
+            print ("{} samples processed".format(self.num_samples))
 
     def __getitem__(self, index):
         """

@@ -11,7 +11,7 @@ import modules as custom_nn
 
 
 def output_to_dist(output, dim=-1):
-    z_size = output.size(dim)/2
+    z_size = output.size(dim)//2
     mean, log_var = torch.split(output, z_size, dim=dim)
     return torch.distributions.Normal(mean, torch.exp(0.5*log_var))
 

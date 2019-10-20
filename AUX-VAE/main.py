@@ -67,7 +67,7 @@ parser = argparse.ArgumentParser(description='VAE Speech')
 
 parser.add_argument('--cuda', type=int, default=1, metavar='N',
                     help='use cuda if possible (default: True)')
-parser.add_argument('--batch-size', type=int, default=128, metavar='N',
+parser.add_argument('--batch-size', type=int, default=32, metavar='N',
                     help='input batch size for training (default: 128)')
 parser.add_argument('--learning-rate', type=float, default=0.0008, metavar='N',
                     help='learning rate (default: 0.001)')
@@ -174,12 +174,12 @@ def train(args):
     else:
         raise Exception("No valid Model type provided")
     
-    print "Training Model Type {}".format(args.model_type)
-    print "Model Name: {}".format(args.model_name)
+    print ("Training Model Type {}".format(args.model_type))
+    print ("Model Name: {}".format(args.model_name))
     
     trainer.train_epochs()
     
-    print args.model_name
+    print (args.model_name)
 
 def test(args):
     
@@ -272,15 +272,15 @@ def analyse_latent(args):
                     os.makedirs('experiments')
     
     if args.model_type == 'vae_g_l':
-        print args.model_name
+        print (args.model_name)
         model = vae_g_l.VAE(args)        
         model.load_state_dict(torch.load('experiments/'+args.model_name, map_location=lambda storage, loc: storage))
     elif args.model_type == 'vae_l':
-        print args.model_name
+        print (args.model_name)
         model = vae_l.VAE(args)        
         model.load_state_dict(torch.load('experiments/'+args.model_name, map_location=lambda storage, loc: storage))
     elif args.model_type == 'vae_g_l_exp':
-        print args.model_name
+        print (args.model_name)
         model = vae_g_l_exp.VAE(args) 
         model.load_state_dict(torch.load('experiments/'+args.model_name, map_location=lambda storage, loc: storage))
     
@@ -347,7 +347,7 @@ if __name__ == '__main__':
     else:
         args.use_cuda = False
     
-    print "Using CUDA: {}".format(args.use_cuda)
+    print ("Using CUDA: {}".format(args.use_cuda))
     
     args.hidden_size = 256
     # args.z_size = 256

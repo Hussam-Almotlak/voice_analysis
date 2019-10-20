@@ -117,13 +117,13 @@ if args.cuda and torch.cuda.is_available():
 else:
     use_cuda = False
 
-print "Using CUDA: {}".format(use_cuda)
+print ("Using CUDA: {}".format(use_cuda))
 
 train_dataset = librispeech_custom_dataset.LibriSpeech('../datasets/LibriSpeech/', preprocessed=True, split='train')
 test_dataset = librispeech_custom_dataset.LibriSpeech('../datasets/LibriSpeech/', preprocessed=True, split='test')
 
 if not os.path.isfile('librispeech_splits/speaker_labels.json'):
-    print "preparing speaker labels"
+    print ("preparing speaker labels")
     persons = []
     for i in range(len(train_dataset)):
         sample = train_dataset[i][1][1]
@@ -132,7 +132,7 @@ if not os.path.isfile('librispeech_splits/speaker_labels.json'):
     label_dict = {p : int(l) for p,l in zip(persons, range(len(persons)))}
     ujson.dump(label_dict,open("librispeech_splits/speaker_labels.json", 'w'))
 else:
-    print "loading speaker labels"
+    print ("loading speaker labels")
     label_dict = ujson.load(open("librispeech_splits/speaker_labels.json", 'r'))
 
 test_sampler = sampler.RandomSampler(test_dataset)
@@ -157,10 +157,10 @@ class SPEAKER_CLASSIFIER(nn.Module):
     
     def forward(self, input):
         
-        if args.debug_mode: print "input: {}".format(input.size())
+        if args.debug_mode: print ("input: {}".format(input.size()))
         
         pred = self.fc(input)
-        if args.debug_mode: print pred.size()
+        if args.debug_mode: print (pred.size())
         
         return pred
 
@@ -295,7 +295,7 @@ if __name__ == '__main__' and args.mode=='train':
     
     if args.resume == 1:
         model.load_state_dict(torch.load('experiments/'+args.model_name, map_location=lambda storage, loc: storage))
-        print "loaded model"
+        print ("loaded model")
     
     if use_cuda:
         model.cuda()
