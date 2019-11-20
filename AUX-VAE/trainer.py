@@ -36,21 +36,32 @@ class VAETrainer:
         self.test_dataset = test_dataset
         self.loss_function = args.loss_function
         
-        if self.loss_function == 'mi_loss':            
+        if self.loss_function == 'mi_loss':
             self.VAELosses = collections.namedtuple("Losses", ["loss", "reconstruction_nll", "prior_nll", "z_prediction_nll", "z_global_entropy", "z_local_entropy"])
+            #self.VAELosses = collections.namedtuple("Losses", ["loss", "reconstruction_nll", "prior_nll", "z_prediction_nll", "z_global_entropy", "z_local_entropy", "classifier_loss"])
         elif self.loss_function == 'kl_loss':
             self.VAELosses = collections.namedtuple("Losses", ["loss", "reconstruction_nll", "prior_nll", "z_local_entropy"])
         elif self.loss_function == 'mi_loss_exp':
             self.VAELosses = collections.namedtuple("Losses", ["loss", "reconstruction_nll", "prior_nll", "z_prediction_nll", "z_entropy", "z_global_entropy", "z_local_entropy"])
+        elif self.loss_function == 'sup_loss':
+            self.VAELosses = collections.namedtuple("Losses", ["loss"])
         
         self.VAELosses.__new__.__defaults__ = (0,) * len(self.VAELosses._fields)
 
-    def mi_loss(self, input, outputs, beta_kl=10., beta_mi=10., step=0):
+    def sup_loss(self, pred, label):
+        loss = nn.NLLLoss()
+        classifier_loss = loss(pred, label)
+        Losses = self.VAELosses(loss=classifier_loss)
+        return Losses
+
+    def mi_loss(self, input, outputs, label=7, beta_kl=10., beta_mi=10., step=0):
         reconstruction = outputs.decoder_out
         global_sample = outputs.encoder_out.global_sample
         local_sample = outputs.encoder_out.local_sample
+        #pred = outputs.classifier_out
         
         if self.args.use_cuda:
+            #prior is P(z)
             prior = torch.distributions.Normal(torch.zeros(local_sample.size()).cuda(), torch.ones(local_sample.size()).cuda())
             data_prop = torch.distributions.Normal(reconstruction, 0.01*torch.ones(reconstruction.size()).cuda())
         else:
@@ -71,11 +82,16 @@ class VAETrainer:
         KL_local_prior = prior_ll + z_local_entropy
         # first term is a cross-entropy from prediction and prior, together with the entropy this is the mutual information
         MI_global_prediction = z_prediction_ll + z_global_entropy
+
+        #The loss from the classifier
+        #loss = nn.NLLLoss()
+        #classifier_loss = -(loss(pred, label))
         
+        #Loss = - reconstruction_ll - beta_kl * KL_local_prior - beta_mi * MI_global_prediction - 5*classifier_loss
         Loss = - reconstruction_ll - beta_kl * KL_local_prior - beta_mi * MI_global_prediction
-        
+
+        #Losses = self.VAELosses(loss=Loss, reconstruction_nll=-reconstruction_ll, prior_nll=-prior_ll, z_prediction_nll=-z_prediction_ll, z_global_entropy=z_global_entropy, z_local_entropy=z_local_entropy, classifier_loss=-classifier_loss)
         Losses = self.VAELosses(loss=Loss, reconstruction_nll=-reconstruction_ll, prior_nll=-prior_ll, z_prediction_nll=-z_prediction_ll, z_global_entropy=z_global_entropy, z_local_entropy=z_local_entropy)
-        
         return Losses
 
     def kl_loss(self, input, outputs, beta_kl=10., step=0):
@@ -110,6 +126,7 @@ class VAETrainer:
             all_train_losses = ujson.load(open("experiments/{}.json".format('train_losses_'+self.args.model_name), 'r'))
             all_test_losses = ujson.load(open("experiments/{}.json".format('test_losses_'+self.args.model_name), 'r'))
         for epoch in range(self.args.num_epochs):
+            #avg_epoch_losses, step, acc = self.train(step)
             avg_epoch_losses, step = self.train(step)
             if epoch % self.args.checkpoint_interval == 0:
                 # print step
@@ -117,6 +134,7 @@ class VAETrainer:
                     epoch))
                 print('-------------------------')
                 print (avg_epoch_losses)
+                #print("The training accuracy is: {:.4f}".format(acc))
                 print('-------------------------')
                 
                 # self.writer.add_scalars('data/train_losses/', avg_epoch_losses, epoch)
@@ -125,11 +143,13 @@ class VAETrainer:
                 
                 last_train_losses = avg_epoch_losses['loss']
                 
+                #avg_test_epoch_losses, acc = self.test()
                 avg_test_epoch_losses = self.test()
                 print('====> Epoch: {} Average test losses'.format(
                     epoch))
                 print('-------------------------')
                 print (avg_test_epoch_losses)
+                #print("The testing accuracy is: {:.4f}".format(acc))
                 print('-------------------------')
                 
                 # self.writer.add_scalars('data/test_losses/', avg_test_epoch_losses, epoch)
@@ -167,16 +187,25 @@ class VAETrainer:
         self.model.train()
         
         epoch_losses = {}
-        
+        #tp = 0
+        #sample_amount = 0
+
+
         losses = self.VAELosses()
         
         for name, value in losses._asdict().items():
             epoch_losses[name] = value
-        
+
         batch_amount = 0
+        label_dict = {'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6}
         for batch_idx, (data, pers) in enumerate(self.train_loader):
+            #print("This is the batch: {} from: {} batches.".format(batch_idx, len(self.train_loader)))
             batch_amount += 1
             self.optimizer.zero_grad()
+
+            #must be reviewed
+            label = [label_dict[p] for p in pers[0]]
+            label = torch.tensor(label).cuda()
             
             data = torch.clamp(torch.div(data,(torch.min(data, dim=2, keepdim=True)[0]).repeat(1,1,data.size(2))), min=0, max=1)
             
@@ -184,25 +213,36 @@ class VAETrainer:
             
             if self.args.use_cuda:
                 data = data.cuda()
-            
-            data = data.transpose(1,2)
-            
+            #"""
+            data = data.transpose(1,2) #this is important
+            #"""
             original = data
             
             if self.args.predictive:
                 data = F.pad(data, (0,0,1,0), "constant", 1)
                 original = F.pad(original, (0,0,0,1), "constant", 1)
-            
+
+            #"""
             outputs = self.model(data, annealing = 0)
-            
+            #"""
+            #output = self.model(data)
             if self.loss_function == 'mi_loss':
-                losses = self.mi_loss(original, outputs, beta_kl=self.args.beta_kl, beta_mi=self.args.beta_mi, step = step)
+                losses = self.mi_loss(original, outputs, label, beta_kl=self.args.beta_kl, beta_mi=self.args.beta_mi, step = step)
             elif self.loss_function == 'kl_loss':
                 losses = self.kl_loss(original, outputs, beta_kl=self.args.beta_kl, step = step)
-            
+            elif self.loss_function == 'sup_loss':
+                losses = self.sup_loss(output, label)
+
             loss = losses.loss
+
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
+            #"""
+            #max, indices = torch.max(outputs.classifier_out, dim=1)
+            #"""
+            #max, indices = torch.max(output, dim=1)
+            #tp += (indices == label).float().sum()
+            #sample_amount += len(label)
 
             for name, value in losses._asdict().items():
                 epoch_losses[name] += value.item()
@@ -211,8 +251,11 @@ class VAETrainer:
             step += 1
         
         avg_epoch_losses = {k : round(v/batch_amount,5) for k, v in epoch_losses.items()}
-        
+
+        #acc = tp/sample_amount
+
         return avg_epoch_losses, step
+        #return avg_epoch_losses, step, acc
     
     
     def test(self):
@@ -225,40 +268,61 @@ class VAETrainer:
             epoch_losses[name] = value
         
         batch_amount = 0
+        #tp = 0
+        #sample_amount = 0
+
+        label_dict = {'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6}
         for batch_idx, (data, pers) in enumerate(self.test_loader):
             
             batch_amount += 1
+
+            # must be reviewed
+            label = [label_dict[p] for p in pers[0]]
+            label = torch.tensor(label).cuda()
+
             data = torch.clamp(torch.div(data,(torch.min(data, dim=2, keepdim=True)[0]).repeat(1,1,data.size(2))), min=0, max=1)
             
             with torch.no_grad():
                 data = Variable(data)
             if self.args.use_cuda:
                 data = data.cuda()
-                
+            #"""
             data = data.transpose(1,2)
-            
+            #"""
             original = data
             if self.args.predictive:
                 data = F.pad(data, (0,0,1,0), "constant", 1)
                 original = F.pad(original, (0,0,0,1), "constant", 1)
-            
+            #"""
             outputs = self.model(data, annealing = 0)
-            
+            #"""
+            #output = self.model(data)
             if self.loss_function == 'mi_loss':
-                losses = self.mi_loss(original, outputs, beta_kl=self.args.beta_kl, beta_mi=self.args.beta_mi)
+                losses = self.mi_loss(original, outputs, label, beta_kl=self.args.beta_kl, beta_mi=self.args.beta_mi)
             elif self.loss_function == 'kl_loss':
                 losses = self.kl_loss(original, outputs, beta_kl=self.args.beta_kl)
             elif self.loss_function == 'mi_loss_exp':
                 losses = self.mi_loss_exp(original, outputs, beta_kl=self.args.beta_kl, beta_mi=self.args.beta_mi)
+            elif self.loss_function == 'sup_loss':
+                losses = self.sup_loss(output, label)
             
-            loss = losses.loss
+            #loss = losses.loss
+            #"""
+            #max, indices = torch.max(outputs.classifier_out, dim=1)
+            #"""
+            #max, indices = torch.max(output, dim=1)
+            #tp += (indices == label).float().sum()
+            #sample_amount += len(label)
             
             for name, value in losses._asdict().items():
                 epoch_losses[name] += value.item()
         
         avg_epoch_losses = {k : round(v/batch_amount,5) for k, v in epoch_losses.items()}
-        
+
+        #acc = tp/sample_amount
+
         return avg_epoch_losses
+        #return avg_epoch_losses, acc
     
     def create_reconstruction(self, indx):
         

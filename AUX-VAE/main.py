@@ -33,6 +33,7 @@ from torchvision.utils import save_image
 
 import vctk_custom_dataset
 import librispeech_custom_dataset
+import OMG_dataset
 from torchvision.utils import save_image
 
 import pickle
@@ -51,6 +52,7 @@ import librosa.display
 import modules as custom_nn
 import vae_g_l
 import vae_l
+import supervised_classifier
 
 from trainer import VAETrainer
 
@@ -58,6 +60,8 @@ from tensorboardX import SummaryWriter
 
 import PIL.Image
 from torchvision.transforms import ToTensor
+torch.manual_seed(0)
+
 
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")
 
@@ -67,11 +71,11 @@ parser = argparse.ArgumentParser(description='VAE Speech')
 
 parser.add_argument('--cuda', type=int, default=1, metavar='N',
                     help='use cuda if possible (default: True)')
-parser.add_argument('--batch-size', type=int, default=32, metavar='N',
+parser.add_argument('--batch-size', type=int, default=16, metavar='N',
                     help='input batch size for training (default: 128)')
-parser.add_argument('--learning-rate', type=float, default=0.0008, metavar='N',
+parser.add_argument('--learning-rate', type=float, default=0.00001, metavar='N',
                     help='learning rate (default: 0.001)')
-parser.add_argument('--num-epochs', type=int, default=100, metavar='N',
+parser.add_argument('--num-epochs', type=int, default=150, metavar='N',
                     help='number of epochs to train (default: 60)')
 parser.add_argument('--model-type', type=str, default='vae_g_l', metavar='S',
                     help='model type; options: vae_g_l, vae_l (default: vae_g_l)')
@@ -97,7 +101,7 @@ parser.add_argument('--k', type=float, default=0.0025, metavar='N',
                     help='(anneal function hyperparameter default: 0.0025')
 parser.add_argument('--x0', type=int, default=2500, metavar='N',
                     help='(anneal function hyperparameter default: 2500')
-parser.add_argument('--dataset', type=str, default='LibriSpeech', metavar='S',
+parser.add_argument('--dataset', type=str, default='OMGEmotion', metavar='S',
                     help='(dataset used for training; LibriSpeech, VCTK; default: VCTK')
 parser.add_argument('--beta-mi', type=float, default=1., metavar='N',
                     help='(beta weight for MI, default: 1.')
@@ -122,12 +126,17 @@ def load_dataset(dataset='VCTK', train_subset=1.0, person_filter=None):
     elif dataset=='LibriSpeech':
         train_dataset = librispeech_custom_dataset.LibriSpeech('../datasets/LibriSpeech/', preprocessed=True, split='train', person_filter = person_filter, filter_mode = 'include')
         test_dataset = librispeech_custom_dataset.LibriSpeech('../datasets/LibriSpeech/', preprocessed=True, split='test', person_filter = person_filter, filter_mode = 'include')
-    
+    elif dataset=='OMGEmotion':
+        train_dataset = OMG_dataset.OMGEmotion('../datasets/OMG_preprocessed/', preprocessed=True, split='train', person_filter = person_filter, filter_mode = 'include')
+        test_dataset = OMG_dataset.OMGEmotion('../datasets/OMG_preprocessed/', preprocessed=True, split='test', person_filter = person_filter, filter_mode = 'include')
+        #validate_dataset = OMG_dataset.OMGEmotion('../datasets/OMG_preprocessed/', preprocessed=True, split='validate', person_filter = person_filter, filter_mode = 'include')
+
     indices = list(range(len(train_dataset)))
     split = int(np.floor(len(train_dataset) * train_subset))
     
     train_sampler = sampler.RandomSampler(sampler.SubsetRandomSampler(indices[:split]))
     test_sampler = sampler.RandomSampler(test_dataset)
+    #validate_sampler = sampler.RandomSampler(validate_dataset)
     
     kwargs = {'num_workers': 8, 'pin_memory': True} if args.use_cuda else {}
     train_loader = torch.utils.data.DataLoader(
@@ -136,7 +145,7 @@ def load_dataset(dataset='VCTK', train_subset=1.0, person_filter=None):
     test_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size,
         sampler = test_sampler, drop_last=False, **kwargs)
-    
+
     return train_loader, test_loader, train_dataset, test_dataset
 
 
@@ -149,10 +158,10 @@ def train(args):
         if args.resume:
             model.load_state_dict(torch.load('experiments/'+args.model_name))
         args.loss_function = 'mi_loss'
-        
+
         optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
         writer = SummaryWriter(comment=args.model_name)
-        
+
         if args.use_cuda:
             model = model.cuda()
         trainer = VAETrainer(args, model, optimizer, train_loader, test_loader, test_dataset, writer)
@@ -170,7 +179,20 @@ def train(args):
             model = model.cuda()
         
         trainer = VAETrainer(args, model, optimizer, train_loader, test_loader, test_dataset, writer)
-        
+
+    elif args.model_type == 'supervised':
+        model = supervised_classifier.Classifier(args)
+        if args.resume:
+            model.load_state_dict(torch.load('experiments/'+args.model_name))
+        args.loss_function = 'sup_loss'
+
+        optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
+        writer = SummaryWriter(comment=args.model_name)
+
+        if args.use_cuda:
+            model = model.cuda()
+        trainer = VAETrainer(args, model, optimizer, train_loader, test_loader, test_dataset, writer)
+
     else:
         raise Exception("No valid Model type provided")
     
@@ -188,7 +210,7 @@ def test(args):
     
     transfs = transforms.Compose([
         # transforms.Scale(),
-        prepro.DB_Spec(sr = 11025, n_fft=400,hop_t=0.010,win_t=0.025)
+        prepro.DB_Spec(sr = 16000, n_fft=400,hop_t=0.010,win_t=0.025)
         ])
     
     # mel_basis = librosa.filters.mel(16000, 256, n_mels=80, norm=1)
@@ -200,7 +222,10 @@ def test(args):
     elif args.model_type == 'vae_l':
         model = vae_l.VAE(args)        
         model.load_state_dict(torch.load('experiments/'+args.model_name, map_location=lambda storage, loc: storage))
-    
+    elif args.model_type == 'supervised':
+        model = supervised_classifier.Classifier(args)
+        model.load_state_dict(torch.load('experiments/' + args.model_name, map_location=lambda storage, loc: storage))
+
     model.eval()
     
     if args.dataset == "VCTK":
@@ -294,8 +319,10 @@ def analyse_latent(args):
         train_loader, test_loader, train_dataset, test_dataset = load_dataset(dataset=args.dataset, person_filter=['4640', '4788', '4853', '4830', '19', '26', '1221', '60', '83', '2300'])
     elif args.dataset == 'VCTK':
        train_loader, test_loader, train_dataset, test_dataset = load_dataset(dataset=args.dataset, person_filter=['p249', 'p239', 'p276', 'p283', 'p243', 'p254', 'p258', 'p271'])
-       train_loader = test_loaders
-    
+       train_loader = test_loader
+    elif args.dataset == 'OMGEmotion':
+        train_loader, test_loader, train_dataset, test_dataset = load_dataset(dataset=args.dataset, person_filter=[ '4bf764f4f', '3ecbd1402', '5ba7890ab', '2debca276', '2af27e034', 'd1dae148e', 'e3b57cfd8'])
+        # '7d0084def'3x, '9c3a9bce7'3x, '22e9f018d'3x, '78a906313'4x, 'd51aee260'3x, 'f1f277e5d'4x, 'e3b57cfd8'4x ... 664ea0ccc
     for batch_idx, (data, label) in enumerate(train_loader):
         label = np.transpose(np.array(label))
         
@@ -305,6 +332,10 @@ def analyse_latent(args):
         elif args.dataset == 'LibriSpeech':
             labels.extend(label[:,0])
             persons.extend(label[:,1])
+        elif args.dataset == 'OMGEmotion':
+            labels.extend(label[:, 0])
+            persons.extend(label[:, 1])
+            persons = [person.split('_')[0] for person in persons]
         
         data = data.transpose(1,2)
         data = data / (torch.min(data))
@@ -331,10 +362,12 @@ def analyse_latent(args):
     labels = np.array(labels)
     latents = np.array(latents)
     persons = np.array(persons)
-    
+    print(latents.shape)
+
     ujson.dump(latents,open("experiments/tsne_latents.json", 'w'))
     ujson.dump(labels,open("experiments/tsne_labels.json", 'w'))
     ujson.dump(persons,open("experiments/tsne_persons.json", 'w'))
+
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -358,6 +391,6 @@ if __name__ == '__main__':
     elif args.mode == 'test':
         test(args)
     elif args.mode == 'analyse-latent':
-        analyse_latent(args)    
+        analyse_latent(args)
     else:
         print("No --mode provided, options: train, test, analyse-latent")

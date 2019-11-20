@@ -84,7 +84,8 @@ class LibriSpeech(data.Dataset):
             
             self.num_samples = len(self.data_paths)
             
-        else:            
+        else:
+            #making an array of all sound files with make_manifest
             paths = make_manifest(self.root)
             os.mkdir('librispeech_preprocessed')
             os.mkdir('librispeech_preprocessed/train')
@@ -93,8 +94,10 @@ class LibriSpeech(data.Dataset):
             test_splits = open("librispeech_splits/test_split.txt")
             train_splits = open("librispeech_splits/train_split.txt")
             split_reader = csv.reader(test_splits)
+            #names of all test data
             test_data = [r[0] for r in split_reader]
             split_reader = csv.reader(train_splits)
+            #names of all training data
             train_data = [r[0] for r in split_reader]
             
             with open(os.path.join(self.root,"SPEAKERS.TXT")) as csvfile:                
@@ -120,6 +123,7 @@ class LibriSpeech(data.Dataset):
                         sig = sig[0]
                     
                     try:
+                        #dict[pers] = {male, female}
                         data = (sig.tolist(), dict[pers] + [pers])
                         if before_keyword in train_data:
                             ujson.dump(data,open("librispeech_preprocessed/train/{}.json".format(before_keyword), 'w'))

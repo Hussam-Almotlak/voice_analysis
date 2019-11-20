@@ -1,0 +1,3 @@
+This paper is for the new q(Z|X) = integral[ q(Z|h,X).q(h|X) ]: https://arxiv.org/pdf/1711.08352.pdf
+
+https://arxiv.org/pdf/1602.05473.pdf

@@ -1,0 +1,6 @@
+The dimensions of the input data are: torch.Size([32, 201, 201])
+The dimensions of the global sample are: torch.Size([32, 201, 256])
+The dimensions of the local sample are: torch.Size([32, 201, 256])
+The dimensions of the decoder output are: torch.Size([32, 201, 201])
+The dimensions of the predictor output are: torch.Size([32, 201, 256])
+

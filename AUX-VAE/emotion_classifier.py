@@ -13,6 +13,8 @@ import math
 
 import matplotlib
 matplotlib.use('agg')
+from sklearn.decomposition import PCA
+from sklearn import cluster
 
 import torch
 from torch import nn, optim
@@ -51,11 +53,13 @@ import librosa.display
 import modules as custom_nn
 import vae_g_l
 import vae_l
-import vae_g_l_exp
+#import vae_g_l_exp
 
 from trainer import VAETrainer
 
 from tensorboardX import SummaryWriter
+
+import OMG_dataset
 
 import PIL.Image
 from torchvision.transforms import ToTensor
@@ -64,7 +68,7 @@ parser = argparse.ArgumentParser(description='Speaker Identification')
 
 parser.add_argument('--cuda', type=int, default=1, metavar='N',
                     help='use cuda if possible (default: 1)')
-parser.add_argument('--batch-size', type=int, default=128, metavar='N',
+parser.add_argument('--batch-size', type=int, default=16, metavar='N',
                     help='input batch size for training (default: 128)')
 parser.add_argument('--learning-rate', type=float, default=0.01, metavar='N',
                     help='learning rate (default: 0.01)')
@@ -72,9 +76,9 @@ parser.add_argument('--num-epochs', type=int, default=100, metavar='N',
                     help='number of epochs to train (default: 100)')
 parser.add_argument('--model-type', type=str, default='vae_g_l', metavar='S',
                     help='model type; options: vae_g_l, vae_l (default: vae_g_l)')
-parser.add_argument('--model-name', type=str, default='speaker_id_model', metavar='S',
+parser.add_argument('--model-name', type=str, default='emotion_classifier', metavar='S',
                     help='model name (for saving) (default: speaker_id_model)')
-parser.add_argument('--pretrained-model', type=str, default='recurrent_vae', metavar='S',
+parser.add_argument('--pretrained-model', type=str, default='vae_g_l', metavar='S',
                     help='pretrained vae (default: recurrent_vae)')
 parser.add_argument('--checkpoint-interval', type=int, default=1, metavar='N',
                     help='Interval between epochs to print loss and save model (default: 1)')
@@ -98,6 +102,8 @@ parser.add_argument('--x0', type=int, default=2500, metavar='N',
                     help='(anneal function hyperparameter default: 2500')
 parser.add_argument('--z-size', type=int, default=256, metavar='N',
                     help='(latent feature depth, default: 256')
+parser.add_argument('--type', type=str, default='emotion', metavar='N', help='Determine if you want to train the model on the person_id or on the emotion. values={emotion, person_id}')
+parser.add_argument('--dataset', type=str, default='OMGEmotion')
 
 args = parser.parse_args()
 
@@ -119,21 +125,29 @@ else:
 
 print ("Using CUDA: {}".format(use_cuda))
 
-train_dataset = librispeech_custom_dataset.LibriSpeech('../datasets/LibriSpeech/', preprocessed=True, split='train')
-test_dataset = librispeech_custom_dataset.LibriSpeech('../datasets/LibriSpeech/', preprocessed=True, split='test')
+label_dict = {}
+if args.dataset == 'LibriSpeech':
+    train_dataset = librispeech_custom_dataset.LibriSpeech('../datasets/LibriSpeech/', preprocessed=True, split='train')
+    test_dataset = librispeech_custom_dataset.LibriSpeech('../datasets/LibriSpeech/', preprocessed=True, split='test')
 
-if not os.path.isfile('librispeech_splits/speaker_labels.json'):
-    print ("preparing speaker labels")
-    persons = []
-    for i in range(len(train_dataset)):
-        sample = train_dataset[i][1][1]
-        persons.append(int(sample))
-    persons = sorted(set(persons))
-    label_dict = {p : int(l) for p,l in zip(persons, range(len(persons)))}
-    ujson.dump(label_dict,open("librispeech_splits/speaker_labels.json", 'w'))
-else:
-    print ("loading speaker labels")
-    label_dict = ujson.load(open("librispeech_splits/speaker_labels.json", 'r'))
+    if not os.path.isfile('librispeech_splits/speaker_labels.json'):
+        print("preparing speaker labels")
+        persons = []
+        for i in range(len(train_dataset)):
+            sample = train_dataset[i][1][1]
+            persons.append(int(sample))
+        persons = sorted(set(persons))
+        label_dict = {p: int(l) for p, l in zip(persons, range(len(persons)))}
+        ujson.dump(label_dict, open("librispeech_splits/speaker_labels.json", 'w'))
+    else:
+        print("loading speaker labels")
+        label_dict = ujson.load(open("librispeech_splits/speaker_labels.json", 'r'))
+
+elif args.dataset == 'OMGEmotion':
+    train_dataset = OMG_dataset.OMGEmotion('../datasets/OMG_preprocessed/', preprocessed=True, split='train')
+    test_dataset = OMG_dataset.OMGEmotion('../datasets/OMG_preprocessed/', preprocessed=True, split='test')
+
+    label_dict = {'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6}
 
 test_sampler = sampler.RandomSampler(test_dataset)
 train_sampler = sampler.RandomSampler(train_dataset)
@@ -141,25 +155,54 @@ train_sampler = sampler.RandomSampler(train_dataset)
 kwargs = {'num_workers': 8, 'pin_memory': True} if args.use_cuda else {}
 train_loader = torch.utils.data.DataLoader(
     train_dataset, batch_size=args.batch_size,
-    sampler = train_sampler, drop_last=False, **kwargs)
+    sampler=train_sampler, drop_last=False, **kwargs)
 test_loader = torch.utils.data.DataLoader(
     test_dataset, batch_size=args.batch_size,
-    sampler = test_sampler, drop_last=False, **kwargs)
+    sampler=test_sampler, drop_last=False, **kwargs)
+
 
 class SPEAKER_CLASSIFIER(nn.Module):
     def __init__(self):
         super(SPEAKER_CLASSIFIER, self).__init__()
-        
-        self.fc = nn.Sequential( 
-            nn.Linear(args.z_size, len(label_dict)),
-            nn.LogSoftmax(dim=1),
+        #"""
+        self.fc = nn.Sequential(
+            #nn.Linear(args.z_size, len(label_dict)),
+            nn.Linear(10, len(label_dict)),
+            nn.LogSoftmax(dim=1)
         )
+        """
+        self.conv1 = nn.Conv1d(1, 32, kernel_size=3, stride=1, padding=1)
+        self.pool = nn.MaxPool1d(2,2)
+        self.conv2 = nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=1)
+
+        #This 64*64 came from 64 channels because of the last convolution, and 64 input size after two times reduction with pooling
+        self.fc1 = nn.Linear(64*64, 32*32)
+        self.fc2 = nn.Linear(32*32, 16*16)
+        self.fc3 = nn.Linear(16*16, 100)
+        self.fc4 = nn.Linear(100, len(label_dict))
+
+        self.softmax = nn.LogSoftmax(dim=1)
+
+        """
     
     def forward(self, input):
         
-        if args.debug_mode: print ("input: {}".format(input.size()))
-        
+        #if args.debug_mode: print ("input: {}".format(input.size()))
+        #input = input.unsqueeze(1)
+        """
+        pred = self.pool(F.relu(self.conv1(input)))
+        pred = self.pool(F.relu(self.conv2(pred)))
+        pred = pred.view(-1, 64*64)
+        pred = F.relu(self.fc1(pred))
+        pred = F.relu(self.fc2(pred))
+        pred = F.relu(self.fc3(pred))
+        pred = F.relu(self.fc4(pred))
+        pred = self.softmax(pred)
+        """
         pred = self.fc(input)
+        #pred = pred.squeeze(0)#
+
+        #print(pred.shape)
         if args.debug_mode: print (pred.size())
         
         return pred
@@ -169,15 +212,51 @@ def loss_function(pred, label):
     
     return NLL(pred, label)
 
+def fit_pca(model, vae_model):
+    all_training = []
+    for batch_idx, (data, pers) in enumerate(train_loader):
+        data = torch.clamp(torch.div(data, (torch.min(data, dim=2, keepdim=True)[0]).repeat(1, 1, data.size(2))), min=0, max=1)
+
+        data = Variable(data)
+
+        data = data.transpose(1, 2)
+
+        if use_cuda:
+            data = data.cuda()
+
+        outs = vae_model(data)
+        if args.model_type == 'vae_g_l':
+            global_sample = torch.mean(outs.encoder_out.global_sample, dim=1)
+            global_sample = np.array(global_sample.cpu())
+            all_training.append(global_sample[0])
+
+    #print(all_training)
+    #pca = PCA(n_components=50, whiten=False)
+    #pca = pca.fit(all_training)
+    agglo = cluster.FeatureAgglomeration(n_clusters=10)
+    agglo = agglo.fit(all_training)
+    torch.save(agglo, "experiments/pca")
+
+    return agglo
+
+
 def train(model, vae_model, optimizer):
     model.train()
     epoch_loss = 0
-    
+
+    training_label = 0
+    if args.type == 'person':
+        training_label = 1
+    print('Training label = ' + str(training_label))
+
+    #pca = fit_pca(model, vae_model)
+    pca = torch.load("experiments/pca")
     for batch_idx, (data, pers) in enumerate(train_loader):
         optimizer.zero_grad()
         
-        label = [label_dict[p] for p in pers[1]]
+        label = [label_dict[p] for p in pers[training_label]]
         label = torch.tensor(label)
+        #label = label.unsqueeze(1)
 
         data = torch.clamp(torch.div(data,(torch.min(data, dim=2, keepdim=True)[0]).repeat(1,1,data.size(2))), min=0, max=1)
         
@@ -190,14 +269,32 @@ def train(model, vae_model, optimizer):
             label = label.cuda()
         
         outs  = vae_model(data)
+
+        #print("The dimensions of the input data are: {}".format(data.shape))
+        #print("The dimensions of the global sample are: {}".format(outs.encoder_out.global_sample.shape))
+        #print("The dimensions of the local sample are: {}".format(outs.encoder_out.local_sample.shape))
+        #print("The dimensions of the decoder output are: {}".format(outs.decoder_out.shape))
+        #print("The dimensions of the predictor output are: {}".format(outs.predictor_out.rsample().shape))
+
         if args.model_type == 'vae_g_l':
             global_sample = torch.mean(outs.encoder_out.global_sample, dim=1)
+            #global_sample = outs.encoder_out.global_sample
+            #global_sample = global_sample.unsqueeze_(1)
+            #global_sample = global_sample.expand(args.batch_size, 1, 256)  # 32 == batch size
+            #print(global_sample.shape)
             # if using z is desired instead of h
-            # global_sample = torch.mean(outs.encoder_out.local_sample, dim=1)
+            #global_sample = torch.mean(outs.encoder_out.local_sample, dim=1)
         if args.model_type == 'vae_l':
             global_sample = torch.mean(outs.encoder_out.local_sample, dim=1)
-        
+
+        global_sample = pca.transform(global_sample.cpu())
+        global_sample = torch.tensor(global_sample)
+        global_sample = global_sample.cuda().type(torch.cuda.FloatTensor)
+
         pred = model(global_sample)
+        #print(pred[0][0][:])
+        #pred = torch.squeeze(pred, dim=1)
+        #print(pred.shape)
         
         loss = loss_function(pred, label)
         loss.backward()
@@ -212,9 +309,15 @@ def test(model, vae_model):
     test_loss = 0
     tp = 0
     sample_amount = 0
+
+    training_label = 0
+    if args.type == 'person':
+        training_label = 1
+
+    pca = torch.load("experiments/pca")
     for batch_idx, (data, pers) in enumerate(test_loader):
         
-        label = [label_dict[p] for p in pers[1]]
+        label = [label_dict[p] for p in pers[training_label]]
         label = torch.tensor(label)
         
         data = torch.clamp(torch.div(data,(torch.min(data, dim=2, keepdim=True)[0]).repeat(1,1,data.size(2))), min=0, max=1)
@@ -230,11 +333,19 @@ def test(model, vae_model):
         outs  = vae_model(data)        
         if args.model_type == 'vae_g_l':
             global_sample = torch.mean(outs.encoder_out.global_sample, dim=1)
+            #global_sample = outs.encoder_out.global_sample
         
         if args.model_type == 'vae_l':
             global_sample = torch.mean(outs.encoder_out.local_sample, dim=1)        
         
+        #print(global_sample.shape)
+
+        global_sample = pca.transform(global_sample.cpu())
+        global_sample = torch.tensor(global_sample)
+        global_sample = global_sample.cuda().type(torch.cuda.FloatTensor)
+
         pred = model(global_sample)
+
         
         max, indices = torch.max(pred, dim=1)
         
