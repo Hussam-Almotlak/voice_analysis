@@ -166,8 +166,8 @@ class SPEAKER_CLASSIFIER(nn.Module):
         super(SPEAKER_CLASSIFIER, self).__init__()
         #"""
         self.fc = nn.Sequential(
-            #nn.Linear(args.z_size, len(label_dict)),
-            nn.Linear(10, len(label_dict)),
+            nn.Linear(args.z_size, len(label_dict)),
+            #nn.Linear(10, len(label_dict)),
             nn.LogSoftmax(dim=1)
         )
         """
@@ -250,7 +250,7 @@ def train(model, vae_model, optimizer):
     print('Training label = ' + str(training_label))
 
     #pca = fit_pca(model, vae_model)
-    pca = torch.load("experiments/pca")
+    #pca = torch.load("experiments/pca")
     for batch_idx, (data, pers) in enumerate(train_loader):
         optimizer.zero_grad()
         
@@ -287,7 +287,7 @@ def train(model, vae_model, optimizer):
         if args.model_type == 'vae_l':
             global_sample = torch.mean(outs.encoder_out.local_sample, dim=1)
 
-        global_sample = pca.transform(global_sample.cpu())
+        #global_sample = pca.transform(global_sample.cpu())
         global_sample = torch.tensor(global_sample)
         global_sample = global_sample.cuda().type(torch.cuda.FloatTensor)
 
@@ -314,7 +314,7 @@ def test(model, vae_model):
     if args.type == 'person':
         training_label = 1
 
-    pca = torch.load("experiments/pca")
+    #pca = torch.load("experiments/pca")
     for batch_idx, (data, pers) in enumerate(test_loader):
         
         label = [label_dict[p] for p in pers[training_label]]
@@ -340,7 +340,7 @@ def test(model, vae_model):
         
         #print(global_sample.shape)
 
-        global_sample = pca.transform(global_sample.cpu())
+        #global_sample = pca.transform(global_sample.cpu())
         global_sample = torch.tensor(global_sample)
         global_sample = global_sample.cuda().type(torch.cuda.FloatTensor)
 

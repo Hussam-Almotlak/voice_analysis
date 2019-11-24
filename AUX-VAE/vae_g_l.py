@@ -13,8 +13,8 @@ import modules as custom_nn
 import numpy as np
 
 def output_to_dist(output, dim=-1):
-    z_size = output.size(dim)//2    # 500/2=256
-    mean, log_var = torch.split(output, z_size, dim=dim)
+    z_size = output.size(dim)//2    # 512/2=256
+    mean, log_var = torch.split(output, z_size, dim=dim) # The whole input will be divided into 2 tensors of size 256 in the dim=-1
     return torch.distributions.Normal(mean, torch.exp(0.5*log_var))
 
 class VAE(nn.Module):
@@ -54,8 +54,7 @@ class Encoder(nn.Module):
         
         self.global_net = nn.Sequential(
             custom_nn.Transpose((1, 2)),
-            #201 because the input is on 201 channels after transpose
-            #The Transpse is in my opinion because the gpu work only with channels last on tf
+            #201 because the input is on 201 channels instead of 202 after transpose
             nn.Conv1d(201, int(args.z_size/4), kernel_size = 3, stride = 1),
             nn.Tanh(),
             
@@ -96,22 +95,57 @@ class Encoder(nn.Module):
         
         # input is a tensor of batch x time x features
         assert len(input.size()) == 3
-        
+
+        #print("The shape of the input is: {}".format(input.shape))
         global_out = self.global_net(input)
+        #print("After the global network: {}".format(global_out.shape) )
+        """
         # global average pooling
         global_out = torch.mean(global_out, dim=1)  # dim=1 is the channels
+        """
+        net_1, net_2, net_3, net_4, net_5, net_6, net_7 = torch.split(global_out, 28, dim=1)
+        net_1 = torch.mean(net_1, dim=1)
+        net_2 = torch.mean(net_2, dim=1)
+        net_3 = torch.mean(net_3, dim=1)
+        net_4 = torch.mean(net_4, dim=1)
+        net_5 = torch.mean(net_5, dim=1)
+        net_6 = torch.mean(net_6, dim=1)
+        net_7 = torch.mean(net_7, dim=1)
+
+        net_1 = net_1.unsqueeze(1)
+        net_2 = net_2.unsqueeze(1)
+        net_3 = net_3.unsqueeze(1)
+        net_4 = net_4.unsqueeze(1)
+        net_5 = net_5.unsqueeze(1)
+        net_6 = net_6.unsqueeze(1)
+        net_7 = net_7.unsqueeze(1)
+        #print("After the global average pooling: {}".format(net_7.shape))
         
         # for testng purposes of speaker transformation
         # ujson.dump(global_out.tolist(), open("experiments/global_out.json", 'w'))
         # global_out = torch.FloatTensor(ujson.load(open('experiments/global_out.json', 'r')))
         # global_out = global_out + torch.rand(global_out.size())
-        
+        """
         global_out = global_out.unsqueeze(1)
+        print("After unsqueeze on dim=1: {}".format(global_out.shape))
         global_out = global_out.repeat(1,input.size(1),1)
-        
+        print("After repeating: {}".format(global_out.shape))       
+        """
+        #global_out = torch.cat((net_1, net_2, net_3, net_4, net_5, net_6), dim=1)
+        #global_out = global_out.repeat(1, 29, 1)
+        net_1 = net_1.repeat(1, 29, 1)
+        net_2 = net_2.repeat(1, 29, 1)
+        net_3 = net_3.repeat(1, 29, 1)
+        net_4 = net_4.repeat(1, 29, 1)
+        net_5 = net_5.repeat(1, 29, 1)
+        net_6 = net_6.repeat(1, 29, 1)
+        net_7 = net_7.repeat(1,input.size(1)-29*6, 1)
+        global_out = torch.cat((net_1, net_2, net_3, net_4, net_5, net_6, net_7), dim=1)
+        #global_out = torch.cat((global_out, net_7), dim=1)
+        #print("concatenating the first sex networks: {}".format(global_out.shape))
         global_dist = output_to_dist(global_out)
-        
         global_z_sample = global_dist.rsample()  #rsample means random sample
+        #print("A sample of z: {}".format(global_z_sample.shape) )
         
         resized_sample = global_z_sample
         

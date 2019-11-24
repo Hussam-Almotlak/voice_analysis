@@ -152,7 +152,8 @@ class Emotion_Regression(nn.Module):
         super(Emotion_Regression, self).__init__()
         # """
         self.fc = nn.Sequential(
-            nn.Linear(args.z_size, 128),
+            nn.Linear(args.z_size, 512),
+            nn.Linear(512, 128),
             nn.Linear(128, 2)
             #nn.Linear(10, len(label_dict)),
         )
@@ -179,7 +180,7 @@ def loss_function(pred, label):
 
     return (l1+l2)/2, l1, l2
 
-
+"""
 def fit_pca(model, vae_model):
     all_training = []
     for batch_idx, (data, pers) in enumerate(train_loader):
@@ -207,7 +208,7 @@ def fit_pca(model, vae_model):
     torch.save(pca, "experiments/pca")
 
     return pca
-
+"""
 
 def train(model, vae_model, optimizer):
     model.train()
@@ -232,8 +233,7 @@ def train(model, vae_model, optimizer):
 
         # label = label.unsqueeze(1)
 
-        data = torch.clamp(torch.div(data, (torch.min(data, dim=2, keepdim=True)[0]).repeat(1, 1, data.size(2))), min=0,
-                           max=1)
+        data = torch.clamp(torch.div(data, (torch.min(data, dim=2, keepdim=True)[0]).repeat(1, 1, data.size(2))), min=0, max=1)
 
         data = Variable(data)
 
@@ -315,6 +315,7 @@ def test(model, vae_model):
         outs = vae_model(data)
         if args.model_type == 'vae_g_l':
             global_sample = torch.mean(outs.encoder_out.global_sample, dim=1)
+            #global_sample = torch.mean(outs.encoder_out.local_sample, dim=1)
             # global_sample = outs.encoder_out.global_sample
 
         if args.model_type == 'vae_l':
@@ -371,8 +372,6 @@ def train_epochs(model, vae_model, optimizer):
             print('====> Epoch: {} Average test arousal loss: {:.5f}'.format(epoch, avg_test_arousal))
             print('====> Epoch: {} Average test valence loss: {:.5f}'.format(epoch, avg_test_valence))
             #print('====> Epoch: {} test ACC: {:.4f}'.format(epoch, acc))
-
-            last_loss = avg_test_loss
 
             writer.add_scalar('experiments/regression_train_loss', avg_train_loss, epoch)
             writer.add_scalar('experiments/regression_test_loss', avg_test_loss, epoch)

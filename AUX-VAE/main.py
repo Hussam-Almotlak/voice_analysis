@@ -71,11 +71,11 @@ parser = argparse.ArgumentParser(description='VAE Speech')
 
 parser.add_argument('--cuda', type=int, default=1, metavar='N',
                     help='use cuda if possible (default: True)')
-parser.add_argument('--batch-size', type=int, default=16, metavar='N',
+parser.add_argument('--batch-size', type=int, default=32, metavar='N',
                     help='input batch size for training (default: 128)')
-parser.add_argument('--learning-rate', type=float, default=0.00001, metavar='N',
+parser.add_argument('--learning-rate', type=float, default=0.0008, metavar='N',
                     help='learning rate (default: 0.001)')
-parser.add_argument('--num-epochs', type=int, default=150, metavar='N',
+parser.add_argument('--num-epochs', type=int, default=100, metavar='N',
                     help='number of epochs to train (default: 60)')
 parser.add_argument('--model-type', type=str, default='vae_g_l', metavar='S',
                     help='model type; options: vae_g_l, vae_l (default: vae_g_l)')
@@ -113,12 +113,7 @@ parser.add_argument('--predictive', type=int, default=1, metavar='N',
                     help='(predictive coding, if false reconstruct, default: 1')
 
 def load_dataset(dataset='VCTK', train_subset=1.0, person_filter=None):
-    
-    transfs = transforms.Compose([
-        transforms.Scale(),
-        prepro.DB_Spec(n_fft=400,hop_t=0.010,win_t=0.025)
-        ])
-    
+
     if dataset=='VCTK':
         person_filter = ['p249', 'p239', 'p276', 'p283', 'p243', 'p254', 'p258', 'p271']
         train_dataset = vctk_custom_dataset.VCTK('../datasets/VCTK-Corpus/', preprocessed=True, person_filter = person_filter, filter_mode = 'exclude')
