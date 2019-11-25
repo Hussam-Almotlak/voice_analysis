@@ -28,7 +28,7 @@ parser = argparse.ArgumentParser(description='VAE Speech')
 
 parser.add_argument('--cuda', type=int, default=1, metavar='N',
                     help='use cuda if possible (default: True)')
-parser.add_argument('--batch-size', type=int, default=16, metavar='N',
+parser.add_argument('--batch-size', type=int, default=1, metavar='N',
                     help='input batch size for training (default: 128)')
 parser.add_argument('--learning-rate', type=float, default=0.0008, metavar='N',
                     help='learning rate (default: 0.001)')
@@ -271,7 +271,7 @@ class Trainer:
             outputs = self.model(data, annealing = 0)
             """
             output = self.model(data)
-            if self.loss_function == 'mi_loss':
+            if self.loss_function == 'nllloss':
                 losses = self.nllloss(output, label)
             
             loss = losses.loss
@@ -283,7 +283,7 @@ class Trainer:
             sample_amount += len(label)
             
             for name, value in losses._asdict().items():
-                epoch_losses[name] += value.item()
+                epoch_losses[name] += value
         
         avg_epoch_losses = {k : round(v/batch_amount,5) for k, v in epoch_losses.items()}
 
