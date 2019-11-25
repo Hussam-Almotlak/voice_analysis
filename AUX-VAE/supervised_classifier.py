@@ -130,8 +130,7 @@ class Trainer:
 
             if epoch % self.args.checkpoint_interval == 0:
                 # print step
-                print('====> Epoch: {} Average train losses'.format(
-                    epoch))
+                print('====> Epoch: {} Average train losses'.format(epoch))
                 print('-------------------------')
                 print (avg_epoch_losses)
                 print("The training accuracy is: {:.4f}".format(acc))
@@ -144,7 +143,7 @@ class Trainer:
                 print('====> Epoch: {} Average test losses'.format(epoch))
                 print('-------------------------')
                 print (avg_test_epoch_losses)
-                #print("The testing accuracy is: {:.4f}".format(acc))
+                print("The testing accuracy is: {:.4f}".format(acc))
                 print('-------------------------')
                 last_test_losses = avg_test_epoch_losses['loss']
 
@@ -283,7 +282,7 @@ class Trainer:
             sample_amount += len(label)
             
             for name, value in losses._asdict().items():
-                epoch_losses[name] += value
+                epoch_losses[name] += value.item()
         
         avg_epoch_losses = {k : round(v/batch_amount,5) for k, v in epoch_losses.items()}
 
