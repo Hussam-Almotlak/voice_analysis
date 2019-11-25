@@ -28,9 +28,9 @@ parser = argparse.ArgumentParser(description='VAE Speech')
 
 parser.add_argument('--cuda', type=int, default=1, metavar='N',
                     help='use cuda if possible (default: True)')
-parser.add_argument('--batch-size', type=int, default=1, metavar='N',
+parser.add_argument('--batch-size', type=int, default=16, metavar='N',
                     help='input batch size for training (default: 128)')
-parser.add_argument('--learning-rate', type=float, default=0.0008, metavar='N',
+parser.add_argument('--learning-rate', type=float, default=0.001, metavar='N',
                     help='learning rate (default: 0.001)')
 parser.add_argument('--num-epochs', type=int, default=100, metavar='N',
                     help='number of epochs to train (default: 60)')
@@ -46,26 +46,10 @@ parser.add_argument('--resume', type=int, default=0, metavar='N',
                     help='continue training default: 0; to continue: 1)')
 parser.add_argument('--debug-mode', type=str, default=0, metavar='N',
                     help='(debug mode (print dimensions) default: 0; to debug: 1)')
-parser.add_argument('--beta', type=float, default=1., metavar='N',
-                    help='(beta weight on KLD, default: 1. (no regularisation))')
 parser.add_argument('--frame-dropout', type=float, default=0., metavar='N',
                     help='(audio frame dropout for decoder, default: 0. (no dropout))')
-parser.add_argument('--decoder-dropout', type=float, default=0.0, metavar='N',
-                    help='(general dropout for decoder, default: 0.5')
-parser.add_argument('--anneal-function', type=str, default='logistic', metavar='S',
-                    help='(anneal function (logistic or linear) default: logistic')
-parser.add_argument('--k', type=float, default=0.0025, metavar='N',
-                    help='(anneal function hyperparameter default: 0.0025')
-parser.add_argument('--x0', type=int, default=2500, metavar='N',
-                    help='(anneal function hyperparameter default: 2500')
 parser.add_argument('--dataset', type=str, default='OMGEmotion', metavar='S',
                     help='(dataset used for training; LibriSpeech, VCTK; default: VCTK')
-parser.add_argument('--beta-mi', type=float, default=1., metavar='N',
-                    help='(beta weight for MI, default: 1.')
-parser.add_argument('--beta-kl', type=float, default=1., metavar='N',
-                    help='(beta weight for KL, default: 1.')
-parser.add_argument('--z-size', type=int, default=256, metavar='N',
-                    help='(latent feature depth, default: 256')
 parser.add_argument('--predictive', type=int, default=1, metavar='N',
                     help='(predictive coding, if false reconstruct, default: 1')
 
@@ -79,7 +63,8 @@ class Classifier(nn.Module):
         self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
         self.conv4 = nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1)
 
-        self.fc = nn.Linear(128*202*201, 7)
+        #self.fc = nn.Linear(128*202*201*args.batch_size//64, 7)
+        self.fc = nn.Linear(10240000//args.batch_size, 7)
         self.dropout = nn.Dropout(p=0.3)
         self.batch_norm1 = nn.BatchNorm2d(32)
         self.batch_norm2 = nn.BatchNorm2d(64)
@@ -88,12 +73,18 @@ class Classifier(nn.Module):
 
     def forward(self, input):
         input = input.unsqueeze(1)
-        pred = F.dropout(F.relu(self.batch_norm1(self.conv1(input))), p=0.3, training=True)
-        pred = F.dropout(F.relu(self.batch_norm2(self.conv2(pred))), p=0.3, training=True)
-        pred = F.dropout(F.relu(self.batch_norm3(self.conv3(pred))), p=0.3, training=True)
-        #pred = F.dropout(F.relu(self.conv4(pred)), p=0.3, training=True)
-        pred = pred.view(-1, 128*202*201)
-        pred = F.relu((self.fc(pred)))
+
+        pred = F.dropout(F.relu(self.batch_norm1(self.conv1(input))), p=0.3)
+        pred = F.max_pool2d(pred, (2,2))
+
+        pred = F.dropout(F.relu(self.batch_norm2(self.conv2(pred))), p=0.3)
+        pred = F.max_pool2d(pred, (2, 2))
+
+        pred = F.dropout(F.relu(self.batch_norm3(self.conv3(pred))), p=0.3)
+        pred = F.dropout(F.relu(self.conv4(pred)), p=0.3)
+
+        pred = pred.view(-1, 10240000//args.batch_size)
+        pred = self.fc(pred)
         pred = self.softmax(pred)
 
         return pred
@@ -121,7 +112,6 @@ class Trainer:
 
     def train_epochs(self):
         step = 0
-        last_test_losses = [np.Inf]
         if self.args.resume:
             all_train_losses = ujson.load(open("experiments/{}.json".format('train_losses_'+self.args.model_name), 'r'))
             all_test_losses = ujson.load(open("experiments/{}.json".format('test_losses_'+self.args.model_name), 'r'))
@@ -136,8 +126,6 @@ class Trainer:
                 print("The training accuracy is: {:.4f}".format(acc))
                 print('-------------------------')
 
-                last_train_losses = avg_epoch_losses['loss']
-                
                 avg_test_epoch_losses, acc = self.test()
 
                 print('====> Epoch: {} Average test losses'.format(epoch))
@@ -145,7 +133,6 @@ class Trainer:
                 print (avg_test_epoch_losses)
                 print("The testing accuracy is: {:.4f}".format(acc))
                 print('-------------------------')
-                last_test_losses = avg_test_epoch_losses['loss']
 
                 if not os.path.exists('experiments'):
                     os.makedirs('experiments')
@@ -177,7 +164,6 @@ class Trainer:
         batch_amount = 0
         label_dict = {'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6}
         for batch_idx, (data, pers) in enumerate(self.train_loader):
-            #print("This is the batch: {} from: {} batches.".format(batch_idx, len(self.train_loader)))
             batch_amount += 1
             self.optimizer.zero_grad()
 
@@ -191,18 +177,15 @@ class Trainer:
             
             if self.args.use_cuda:
                 data = data.cuda()
-            """
+            #"""
             data = data.transpose(1,2) #this is important
-            """
+            #"""
             original = data
-            
+
             if self.args.predictive:
                 data = F.pad(data, (0,0,1,0), "constant", 1)
                 original = F.pad(original, (0,0,0,1), "constant", 1)
 
-            """
-            outputs = self.model(data, annealing = 0)
-            """
             output = self.model(data)
             if self.loss_function == 'nllloss':
                 losses = self.nllloss(output, label)
@@ -211,9 +194,7 @@ class Trainer:
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1)
-            #"""
-            #max, indices = torch.max(outputs.classifier_out, dim=1)
-            #"""
+
             max, indices = torch.max(output, dim=1)
             tp += (indices == label).float().sum()
             sample_amount += len(label)
@@ -259,24 +240,19 @@ class Trainer:
                 data = Variable(data)
             if self.args.use_cuda:
                 data = data.cuda()
-            """
+            #"""
             data = data.transpose(1,2)
-            """
+            #"""
             original = data
             if self.args.predictive:
                 data = F.pad(data, (0,0,1,0), "constant", 1)
                 original = F.pad(original, (0,0,0,1), "constant", 1)
-            """
-            outputs = self.model(data, annealing = 0)
-            """
+
             output = self.model(data)
             if self.loss_function == 'nllloss':
                 losses = self.nllloss(output, label)
-            
-            loss = losses.loss
-            #"""
-            #max, indices = torch.max(outputs.classifier_out, dim=1)
-            #"""
+
+
             max, indices = torch.max(output, dim=1)
             tp += (indices == label).float().sum()
             sample_amount += len(label)
