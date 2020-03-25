@@ -1,5 +1,7 @@
-This repository contains the code and results of applying a VAE architecture with two auxiliary variables on speach audio data, namely a slow auxiliary variable to extract a low dimensional representation for tasks that depend on features that does not change with time like speaker identification, and another auxiliary variable for tasks that depend on features that change in time like emotion recognition. The model was implemented in [PyTorch](https://github.com/pytorch/pytorch).
+This repository contains the code and results of applying a multi-timescal Aux-VAE architecture on audio speach data, namely a slow auxiliary variable to extract a low dimensional representation for tasks that depend on features that does not change with time like speaker identification and gender classification, and another auxiliary variable for tasks that depend on features,which change in time such as emotion recognition. The model was implemented in [PyTorch](https://github.com/pytorch/pytorch).
 
+### Multi-Timescale Aux-VAE
+<p align="center"><img src="./imgs/Two-Aux-VAE.png" width="600" /></p>
 
 ## Running the Code
 
@@ -35,11 +37,17 @@ To create t-SNE plots then run:
 python tsne_plotter.py
 ```
 
-To train a linear classifier on top of representations learned by a model in order to perform speaker identification run:
+To train a linear classifier, using the OMG-Emotion dataset, on top of representations learned by the model, run:
 ```
-python speaker_id.py --pretrained-model=TYPE_OF_MODEL
+python speaker_id.py --pretrained-model=TYPE_OF_MODEL --task={0,1}
 ```
+where "0" for speaker identification and "1" for gender classification.
 
+To train a linear classifier, using the LibriSpeech dataset, on top of representations learned by the model, run:
+```
+python librispeech_speaker_id.py --pretrained-model=TYPE_OF_MODEL --task={0,1}
+```
+where "0" for speaker identification and "1" for gender classification.
 ### Dependencies
 * [Numpy](http://www.numpy.org)
 * [Scipy](https://www.scipy.org)
