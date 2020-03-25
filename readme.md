@@ -1,4 +1,4 @@
-This repository contains the code and results of applying a multi-timescal Aux-VAE architecture on audio speach data, namely a slow auxiliary variable to extract a low dimensional representation for tasks that depend on features that does not change with time like speaker identification and gender classification, and another auxiliary variable for tasks that depend on features,which change in time such as emotion recognition. The model was implemented in [PyTorch](https://github.com/pytorch/pytorch).
+This repository contains the code and results of applying a multi-timescal Aux-VAE architecture to audio speach data. The architecture consists of a global auxiliary variable to extract a low dimensional representation for tasks that depend on fixed features, which does not change with time like speaker identification and gender classification, and a medium auxiliary variable for tasks that depend on features,which take a considerable amout of time to change such as the emotion. The model was implemented in [PyTorch](https://github.com/pytorch/pytorch).
 
 ### Multi-Timescale Aux-VAE
 <p align="center"><img src="./imgs/Two-Aux-VAE.png" width="600" /></p>
