@@ -55,7 +55,7 @@ class LibriSpeech(data.Dataset):
             files.  Useful to keep raw audio and transcriptions.
     """
     
-    def __init__(self, root, downsample=True, transform=None, target_transform=None, dev_mode=False, preprocessed=False, person_filter=None, filter_mode = 'exclude', max_len=201, split='train'):
+    def __init__(self, root, downsample=True, transform=None, target_transform=None, dev_mode=False, preprocessed=False, person_filter=None, filter_mode = 'exclude', max_len=44*4, split='train'):
         self.person_filter = person_filter
         self.filter_mode = filter_mode
         self.root = os.path.expanduser(root)
@@ -115,27 +115,32 @@ class LibriSpeech(data.Dataset):
                     before_keyword, keyword, after_keyword = after_keyword.partition('/')
                     before_keyword, keyword, after_keyword = after_keyword.partition('.flac')
                     
-                    sig = read_audio(path)
-                    if self.transform is not None:
-                        sig = self.transform(sig[0])
-                        
-                    else:
-                        sig = sig[0]
-                    
-                    try:
-                        #dict[pers] = {male, female}
-                        data = (sig.tolist(), dict[pers] + [pers])
-                        if before_keyword in train_data:
-                            ujson.dump(data,open("librispeech_preprocessed/train/{}.json".format(before_keyword), 'w'))
-                        elif before_keyword in test_data:
-                            ujson.dump(data,open("librispeech_preprocessed/test/{}.json".format(before_keyword), 'w'))
-                        if z % 100 == 0:
-                            print ("{} iterations".format(z))
-                        self.train_data_paths = os.listdir(os.path.expanduser('librispeech_preprocessed/train/'))
-                        self.test_data_paths = os.listdir(os.path.expanduser('librispeech_preprocessed/test/'))
-                    except:
-                        continue
-            
+                    signal, sr = librosa.load(path)
+                    length = len(signal) #The length of the signal
+                    rate = 4*sr # The sampling rate is one second
+                    signals_nr = length // rate
+
+                    for nr in range(signals_nr):
+                        sub_sig = signal[nr*rate:nr*rate+rate]
+                        if self.transform is not None:
+                            sub_sig = self.transform(sub_sig)
+                        else:
+                            sub_sig = sub_sig
+                        try:
+                            #dict[pers] = {male, female}
+                            data = (sub_sig.tolist(), dict[pers] + [pers])
+                            if before_keyword in train_data:
+                                ujson.dump(data,open("librispeech_preprocessed/train/{}.json".format(before_keyword+ "_" + str(nr)), 'w'))
+                            elif before_keyword in test_data:
+                                ujson.dump(data,open("librispeech_preprocessed/test/{}.json".format(before_keyword+ "_" + str(nr)), 'w'))
+                            if z % 100 == 0:
+                                print ("{} iterations".format(z))
+                            self.train_data_paths = os.listdir(os.path.expanduser('librispeech_preprocessed/train/'))
+                            self.test_data_paths = os.listdir(os.path.expanduser('librispeech_preprocessed/test/'))
+                        except:
+                            print("There was an exeption!!!!!!!!!!!")
+                            continue
+
             self.train_data_paths = os.listdir(os.path.expanduser('librispeech_preprocessed/train/'))
             self.test_data_paths = os.listdir(os.path.expanduser('librispeech_preprocessed/test/'))
             self.num_samples = len(self.train_data_paths)
