@@ -4,7 +4,11 @@ This repository contains the code and results of applying a multi-timescal Aux-V
 <p align="center"><img src="./imgs/Two-Aux-VAE.png" width="600" /></p>
 
 ## Running the Code
-
+First of all you need to install the "torchaudio" library by going to the folder "audio" and openning there an a terminal, then insert the following command: 
+```
+sudo apt-get install sox libsox-dev libsox-fmt-all
+python setup.py install
+```
 ### Preprocessing
 
 In order to preprocess the [OMG dataset](https://github.com/knowledgetechnologyuhh/OMGEmotionChallenge), please download the audio version of the dataset and then run:
@@ -12,7 +16,12 @@ In order to preprocess the [OMG dataset](https://github.com/knowledgetechnologyu
 python prepare_OMG.py --OMG-path={DIR TO OMG AUDIOS}
 ```
 
-{DIR TO VCTK DIRECTORY} to be replaced by the directory to the audio data
+{DIR TO VCTK DIRECTORY} to be replaced by the directory to the audio data.
+
+In order to preprocess the LibriSpeech dataset, please download the train-clean-100 subset first from (http://www.openslr.org/resources/12/train-clean-100.tar.gz) and then run:
+```
+python preprocess_librispeech.py --librispeech-path={DIR TO VCTK DIRECTORY}
+```
 
 ### Running the Model
 
@@ -32,7 +41,7 @@ To analyse latent representations first run:
 ```
 python main.py --model-type=TYPE_OF_MODEL --mode=analyse-latent
 ```
-To create t-SNE plots then run:
+To create t-SNE plots (only with the LibriSpeech dataset, not with OMG) then run:
 ```
 python tsne_plotter.py
 ```
