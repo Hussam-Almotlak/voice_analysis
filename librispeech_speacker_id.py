@@ -67,7 +67,7 @@ parser = argparse.ArgumentParser(description='Speaker Identification')
 
 parser.add_argument('--cuda', type=int, default=1, metavar='N',
                     help='use cuda if possible (default: 1)')
-parser.add_argument('--batch-size', type=int, default=16, metavar='N',
+parser.add_argument('--batch-size', type=int, default=32, metavar='N',
                     help='input batch size for training (default: 128)')
 parser.add_argument('--learning-rate', type=float, default=0.001, metavar='N',
                     help='learning rate (default: 0.01)')

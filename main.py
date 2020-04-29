@@ -74,9 +74,9 @@ parser.add_argument('--cuda', type=int, default=1, metavar='N',
                     help='use cuda if possible (default: True)')
 parser.add_argument('--batch-size', type=int, default=32, metavar='N',
                     help='input batch size for training (default: 128)')
-parser.add_argument('--learning-rate', type=float, default=0.001, metavar='N',
+parser.add_argument('--learning-rate', type=float, default=0.0001, metavar='N',
                     help='learning rate (default: 0.001)')
-parser.add_argument('--num-epochs', type=int, default=100, metavar='N',
+parser.add_argument('--num-epochs', type=int, default=30, metavar='N',
                     help='number of epochs to train (default: 60)')
 parser.add_argument('--model-type', type=str, default='vae_g_l', metavar='S',
                     help='model type; options: vae_g_l, vae_l (default: vae_g_l)')
