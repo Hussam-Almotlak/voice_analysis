@@ -16,7 +16,7 @@ In order to preprocess the [OMG dataset](https://github.com/knowledgetechnologyu
 python prepare_OMG.py --OMG-path={DIR TO OMG AUDIOS}
 ```
 
-{DIR TO VCTK DIRECTORY} to be replaced by the directory to the audio data.
+{DIR TO OMG DIRECTORY} to be replaced by the directory to the audio data of the OMG-dataset. This directory is the folder "OMG_Emotion_audio" in this repository"
 
 In order to preprocess the LibriSpeech dataset, please download the train-clean-100 subset first from (http://www.openslr.org/resources/12/train-clean-100.tar.gz) and then run:
 ```
