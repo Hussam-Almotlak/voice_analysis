@@ -29,7 +29,7 @@ Models can be trained by running the main.py script. Important options include b
 
 The Aux-VAE model can be trained by:
 ```
-python main.py --model-type=vae_g_l
+python main.py --model-type=vae_g_l --dataset=OMGEmotion/LibriSpeech
 ```
 
 For additional options (such as setting hyperparameters) see:
@@ -39,7 +39,7 @@ python main.py --h
 
 To analyse latent representations first run:
 ```
-python main.py --model-type=TYPE_OF_MODEL --mode=analyse-latent
+python main.py --model-type=TYPE_OF_MODEL --mode=analyse-latent --dataset=OMGEmotion/LibriSpeech
 ```
 To create t-SNE plots (only with the LibriSpeech dataset, not with OMG) then run:
 ```
