@@ -25,6 +25,7 @@ python preprocess_librispeech.py --librispeech-path={DIR TO LibriSpeech DIRECTOR
 
 ### Running the Model
 
+In the experiments folder, there is a pretrained network, so you don't need to retrain the whol architecture. If you want to use the pretrained model then jump to Building Classifiers and Regression Models ontop of the Architecture.
 Models can be trained by running the main.py script. Important options include batch-size, learning-rate, the size of the hidden representaion and number of epochs
 
 The Aux-VAE model can be trained by:
@@ -45,6 +46,7 @@ To create t-SNE plots (only with the LibriSpeech dataset, not with OMG) then run
 ```
 python tsne_plotter.py
 ```
+### Building Classifiers and Regression Models ontop of the Architecture
 
 To train a linear classifier, using the OMG-Emotion dataset, on top of representations learned by the model, run:
 ```
@@ -57,6 +59,12 @@ To train a linear classifier, using the LibriSpeech dataset, on top of represent
 python librispeech_speaker_id.py --pretrained-model=TYPE_OF_MODEL --task={0,1}
 ```
 where "0" for speaker identification and "1" for gender classification.
+
+To train a regression model for emotion regression, on top of representations learned by the model, run:
+```
+python emotion_regression.py --dataset=OMGEmotion
+```
+You need first to preprocess the OMG audio data.
 ### Dependencies
 * [Numpy](http://www.numpy.org)
 * [Scipy](https://www.scipy.org)
