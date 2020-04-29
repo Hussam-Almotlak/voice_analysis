@@ -20,7 +20,7 @@ python prepare_OMG.py --OMG-path={DIR TO OMG AUDIOS}
 
 In order to preprocess the LibriSpeech dataset, please download the train-clean-100 subset first from (http://www.openslr.org/resources/12/train-clean-100.tar.gz) and then run:
 ```
-python preprocess_librispeech.py --librispeech-path={DIR TO VCTK DIRECTORY}
+python preprocess_librispeech.py --librispeech-path={DIR TO LibriSpeech DIRECTORY}
 ```
 
 ### Running the Model
