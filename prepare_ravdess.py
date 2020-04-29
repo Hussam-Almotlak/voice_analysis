@@ -6,8 +6,7 @@ from Ravdess_dataset import Ravdess_dataset
 
 parser = argparse.ArgumentParser(description="prepare the Ravdess emotional dataset")
 
-parser.add_argument('--Ravdess-path', type=str, default="/home/hussam/Bachelorarbeit/Databases/ravdess-emotional-speech-audio",
-                    metavar='S', help="define the path of the dataset to process")
+parser.add_argument('--Ravdess-path', type=str, metavar='S', required=True, help="define the path of the dataset to process")
 
 args = parser.parse_args()
 

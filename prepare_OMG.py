@@ -12,7 +12,7 @@ import audio_utils as prepro
 
 parser = argparse.ArgumentParser(description='Prepare OMGEmotion Dataset')
 
-parser.add_argument('--OMG-path', default="/home/hussam/Bachelorarbeit/OMG_Emotion_audio", type=str, metavar='S', help='(path to OMG-Corpus)')
+parser.add_argument('--OMG-path', type=str, metavar='S', required=True, help='(path to OMG-Corpus)')
 
 args = parser.parse_args()
 # //2 means downsampling to 11025
