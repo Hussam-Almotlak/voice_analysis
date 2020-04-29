@@ -1,0 +1,29 @@
+training_speakers = []
+testing_speakers = []
+for batch_idx, (data, pers) in enumerate(train_loader):
+    training_speakers.append(pers[1][0])
+for batch_idx, (data, pers) in enumerate(test_loader):
+    testing_speakers.append(pers[1][0])
+
+training_speakers = set(training_speakers)
+testing_speakers = set(testing_speakers)
+
+training_counter = {speaker:0 for speaker in training_speakers}
+testing_counter = {speaker:0 for speaker in testing_speakers}
+
+dir = "/home/hussam/two_aux/OMG_preprocessed"
+for file in os.listdir(dir+"/train"):
+    speaker = file.split('_')[0]
+    if speaker in training_counter:
+        training_counter[speaker] += 1
+for key in training_counter:
+    if training_counter[key]>0:
+        print({key, training_counter[key]})
+print("========================================")
+for file in os.listdir(dir+"/test"):
+    speaker = file.split('_')[0]
+    if speaker in testing_counter:
+        testing_counter[speaker] += 1
+for key in testing_counter:
+    if testing_counter[key]>0:
+        print({key, testing_counter[key]})

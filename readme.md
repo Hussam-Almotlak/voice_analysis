@@ -65,6 +65,8 @@ To train a regression model for emotion regression, on top of representations le
 python emotion_regression.py --dataset=OMGEmotion
 ```
 You need first to preprocess the OMG audio data.
+
+For gender- and emotion transformation please use the code incide the folder "for_gender_transformation", because the transformaitons require from the model to take different input on each variable of the three variables instead of the same input as above.
 ### Dependencies
 * [Numpy](http://www.numpy.org)
 * [Scipy](https://www.scipy.org)

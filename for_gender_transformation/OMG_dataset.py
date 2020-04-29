@@ -104,6 +104,10 @@ class OMGEmotion(data.Dataset):
             os.mkdir('OMG_preprocessed/train')
             os.mkdir('OMG_preprocessed/test')
             os.mkdir('OMG_preprocessed/validate')
+            for i in range(7):
+                os.mkdir('OMG_preprocessed/train/' + str(i))
+                os.mkdir('OMG_preprocessed/test/' + str(i))
+                os.mkdir('OMG_preprocessed/validate/' + str(i))
 
             emotion_dict = {'0': 'anger', '1': 'disgust', '2': 'fear', '3': 'happiness', '4': 'neutral', '5': 'sadness', '6': 'surprise'}
             
@@ -145,7 +149,7 @@ class OMGEmotion(data.Dataset):
                         try:
                             data = (sub_sig.tolist(), [emotion, speaker_id, arousal, valence])
                             name = speaker_id + "_" + utterance + "_" + emotion_dict[emotion] + "_" + str(nr)
-                            ujson.dump(data, open("OMG_preprocessed/train/{}.json".format(name), 'w'))
+                            ujson.dump(data, open("OMG_preprocessed/train/{}/{}.json".format(emotion,name), 'w'))
 
                             self.train_data_paths = os.listdir(os.path.expanduser('OMG_preprocessed/train/'))
                         except:
@@ -189,7 +193,7 @@ class OMGEmotion(data.Dataset):
 
                             data = (sub_sig.tolist(), [emotion, speaker_id, arousal, valence])
                             name = speaker_id + "_" + utterance + "_" + emotion_dict[emotion] + "_" + str(nr)
-                            ujson.dump(data, open("OMG_preprocessed/validate/{}.json".format(name), 'w'))
+                            ujson.dump(data, open("OMG_preprocessed/validate/{}/{}.json".format(emotion,name), 'w'))
 
                             self.train_data_paths = os.listdir(os.path.expanduser('OMG_preprocessed/validate/'))
                         except:
@@ -233,7 +237,7 @@ class OMGEmotion(data.Dataset):
 
                             data = (sub_sig.tolist(), [emotion, speaker_id, arousal, valence])
                             name = speaker_id + "_" + utterance + "_" + emotion_dict[emotion] + "_" + str(nr)
-                            ujson.dump(data, open("OMG_preprocessed/test/{}.json".format(name), 'w'))
+                            ujson.dump(data, open("OMG_preprocessed/test/{}/{}.json".format(emotion,name), 'w'))
 
                             self.train_data_paths = os.listdir(os.path.expanduser('OMG_preprocessed/test/'))
                         except:
@@ -254,7 +258,6 @@ class OMGEmotion(data.Dataset):
         Returns:
             tuple: (image, target) where target is index of the target class.
         """
-        # print self.data_paths[0]
 
         audio, label = ujson.load(open(self.root_dir + self.data_paths[index], 'r'))
 
