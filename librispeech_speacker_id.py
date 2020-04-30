@@ -71,7 +71,7 @@ parser.add_argument('--batch-size', type=int, default=32, metavar='N',
                     help='input batch size for training (default: 128)')
 parser.add_argument('--learning-rate', type=float, default=0.001, metavar='N',
                     help='learning rate (default: 0.01)')
-parser.add_argument('--num-epochs', type=int, default=100, metavar='N',
+parser.add_argument('--num-epochs', type=int, default=30, metavar='N',
                     help='number of epochs to train (default: 100)')
 parser.add_argument('--model-type', type=str, default='vae_g_l', metavar='S',
                     help='model type; options: vae_g_l, vae_l (default: vae_g_l)')
@@ -183,11 +183,11 @@ def train(model, vae_model, optimizer):
         else:
             label = [label_dict[p] for p in pers[0]]
             label = torch.tensor(label)
-
+        
         #data = torch.clamp(torch.div(data,(torch.min(data, dim=2, keepdim=True)[0]).repeat(1,1,data.size(2))), min=0, max=1)
         data = data / (torch.min(data))
         data = Variable(data)        
-        
+        #print("The Dimension of the data is: ".format(data.shape))
         data = data.transpose(1,2)
         
         if use_cuda:
@@ -197,7 +197,7 @@ def train(model, vae_model, optimizer):
         outs  = vae_model(data)
 
         if args.model_type == 'vae_g_l':
-            global_sample = torch.mean(outs.encoder_out.local_sample, dim=1)
+            global_sample = torch.mean(outs.encoder_out.global_sample, dim=1)
 
         if args.model_type == 'vae_l':
             global_sample = torch.mean(outs.encoder_out.local_sample, dim=1)
@@ -217,6 +217,7 @@ def train(model, vae_model, optimizer):
         epoch_loss += loss.item()
         
         optimizer.step()
+    
     acc = tp / sample_amount
     return epoch_loss/batch_idx, acc
 
@@ -225,6 +226,9 @@ def test(model, vae_model):
     test_loss = 0
     tp = 0
     sample_amount = 0
+
+    labels =  []
+    globel_latent = []
 
     for batch_idx, (data, pers) in enumerate(test_loader):
         
@@ -235,6 +239,11 @@ def test(model, vae_model):
             label = [label_dict[p] for p in pers[0]]
             label = torch.tensor(label)
         
+        # For Leyuan
+        pers = np.transpose(np.array(pers))
+        labels.extend(pers[:, 1])
+        labels = [labels.split('_')[0] for labels in labels]
+
         #data = torch.clamp(torch.div(data,(torch.min(data, dim=2, keepdim=True)[0]).repeat(1,1,data.size(2))), min=0, max=1)
         data = data / (torch.min(data))
         data = Variable(data)        
@@ -247,7 +256,8 @@ def test(model, vae_model):
         
         outs  = vae_model(data)        
         if args.model_type == 'vae_g_l':
-            global_sample = torch.mean(outs.encoder_out.local_sample, dim=1)
+            global_sample = torch.mean(outs.encoder_out.global_sample, dim=1)
+            globel_latent.extend(outs.encoder_out.global_sample.tolist())
 
         if args.model_type == 'vae_l':
             global_sample = torch.mean(outs.encoder_out.local_sample, dim=1)        
@@ -265,10 +275,21 @@ def test(model, vae_model):
         
         loss = loss_function(pred, label)
         test_loss += loss.item()
-    
+
+        labels = np.array(labels)
+        globel_latent = np.array(globel_latent)
+        ujson.dump(labels,open("experiments/labels.json", 'w'))
+        ujson.dump(globel_latent, open("experiments/globel_latent.json", 'w'))
+        break
+    """
+    labels = np.array(labels)
+    globel_latent = np.array(globel_latent)
+    ujson.dump(labels,open("experiments/labels.json", 'w'))
+    ujson.dump(globel_latent, open("experiments/globel_latent.json", 'w'))
+    """
     acc = tp/sample_amount
     
-    return test_loss/batch_idx, acc
+    return test_loss/(batch_idx+1), acc
 
 def train_epochs(model, vae_model, optimizer):
     
@@ -293,6 +314,19 @@ def train_epochs(model, vae_model, optimizer):
             print('--------------------')
             
             torch.save(model.state_dict(), 'experiments/'+args.model_name)
+
+def test_epochs(model, vae_model):
+    
+    last_loss = np.Inf
+    for epoch in range(args.num_epochs):
+        print('epoch')
+        avg_test_loss, acc = test(model, vae_model)
+        print('====> Epoch: {} Average test loss: {:.4f}'.format(
+            epoch, avg_test_loss))
+        print('====> Epoch: {} test ACC: {:.4f}'.format(
+            epoch, acc))
+        print('--------------------')
+            
 
 if __name__ == '__main__' and args.mode=='train':
     
@@ -324,5 +358,11 @@ if __name__ == '__main__' and args.mode=='train':
         vae_model.cuda()
     
     optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
-    train_epochs(model, vae_model, optimizer)
+
+    if args.mode == 'train':
+        train_epochs(model, vae_model, optimizer)
+    else:
+        args.resume = 1
+        test_epochs(model, vae_model)
+
 #"""
